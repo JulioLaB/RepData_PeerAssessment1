@@ -1,0 +1,147 @@
+---
+title: "Assignment 1"
+output: html_document
+---
+
+First, set the working directory for the whole markdown
+```{r setwd, echo= TRUE}
+knitr::opts_knit$set(root.dir = "C:\\Users\\Julio\\Documents\\data-science-jhuniversity\\5reproducliberesearch\\RepData_PeerAssessment1")
+```
+
+#Loading and preprocessing the data
+
+###Load the data (i.e. read.csv())
+The first thing we will do is to download the data directly from the web and we will decompress it, then I will load it.
+
+```{r redanddownload, echo= TRUE}
+## set and identify source of data for the plot
+sourceRecords <- "source.zip"
+sourceUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+## check if file is already present
+if (!file.exists(sourceRecords)) {
+        download.file(sourceUrl,sourceRecords)
+}
+## check if file has been de-compressed or not
+if (!file.exists("activity")){
+        unzip(sourceRecords)
+}
+activity <- read.csv("activity.csv")
+```
+
+###Process/transform the data (if necessary) into a format suitable for your analysis
+
+```{r readandprocess, results="hide", echo= TRUE}
+require(lubridate)
+activity[,2] <- ymd(activity[,2]) #change to class date
+```
+
+
+#What is mean total number of steps taken per day?
+(Note: for this part of the assignment, you can ignore the missing values in the dataset.)
+
+###Calculate the total number of steps taken per day
+```{r }
+require(dplyr)
+stepsperday <- activity %>% group_by(date) %>% summarize(stpsdy = sum(steps, na.rm=TRUE))
+print(stepsperday)
+``` 
+        
+###Make a histogram of the total number of steps taken each day
+```{r histogram, echo= TRUE}
+hist(stepsperday$stpsdy, main= "Histogram of total steps per day", xlab="steps", breaks=5)
+```
+
+###Calculate and report the mean and median of the total number of steps taken per day
+
+```{r meanmedian, echo=TRUE}
+print(paste("The mean of steps per day is", floor(mean(stepsperday$stpsdy))))
+print(paste("The median of steps per day is", median(stepsperday$stpsdy)))
+```
+
+# What is the average daily activity pattern?
+### Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r timeseries, echo= TRUE}
+intervals <- activity %>% group_by(interval) %>% summarize(avgsteps = mean(steps, na.rm=TRUE))
+
+with(intervals, plot(interval,avgsteps, type= "l", xlab="Minutes (intervals of 5 min)", ylab="Average number of steps", main = "Average daily activity pattern"))
+```
+
+### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r max, echo= TRUE}
+maxint <- intervals[which(intervals[,"avgsteps"] == max(intervals$avgsteps)), "interval"]
+
+print(paste("The interval that contains the maximum number of steps on average is the interval", maxint$interval))
+```
+
+
+# Imputing missing values
+### Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r missing, echo= TRUE}
+print(paste("The total amount of rows with NAs is", sum(!complete.cases(activity)), " which correcpond to a ",
+floor(mean(!complete.cases(activity))*100),"% of all rows."))
+
+```
+
+### Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+In this case, we will use the impute() function of the Hmisc package and impute using the mean of the whole column, just because it is easy to do.
+
+```{r imputing, echo= TRUE}
+require(Hmisc)
+impstepsperday <- activity
+impstepsperday[,1]<-impute(impstepsperday[,1], mean)
+detach("package:Hmisc", unload=TRUE)
+```
+I dettached Hmisc since it messess up with dplyr...!
+
+
+### Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r newset, echo= TRUE}
+impstepsperday <- impstepsperday %>% group_by(date) %>% summarize(stpsdy = sum(steps, na.rm=TRUE))
+```
+
+### Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+```{r histogram2, echo= TRUE}
+
+hist(impstepsperday$stpsdy, main= "Histogram of total steps per day", xlab="steps", breaks=5)
+
+print(paste("The mean of steps per day is", floor(mean(impstepsperday$stpsdy))))
+print(paste("The median of steps per day is", median(impstepsperday$stpsdy)))
+```
+
+### Do these values differ from the estimates from the first part of the assignment? 
+Yes they do!
+
+### What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+
+```{r diff, echo= TRUE}
+print(paste("The total number of steps is increased by", sum(impstepsperday$stpsdy) - sum(stepsperday$stpsdy), "WOOOOOOOW (this is 2304 NA values times the mean (37.28)."))
+
+```
+
+#Are there differences in activity patterns between weekdays and weekends?
+
+### Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+```{r factorize, echo=TRUE}
+steps <- activity
+steps[,2] <- wday(steps[,2],label=TRUE)
+wkdys <- c("Mon", "Tue", "Wed", "Thu", "Fri")
+steps[,2] <- factor( steps[,2] %in% wkdys, levels = c(TRUE, FALSE), labels= c("Weekdays", "Weekend"))
+```
+
+###Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+
+```{r plotweekdays, echo=TRUE}
+require(ggplot2)
+
+steps <- steps %>% group_by(date, interval) %>% summarize(stpsint = sum(steps, na.rm=TRUE))
+g <- ggplot(steps, aes(interval, stpsint, group = date, colour = date))
+g + geom_line() + theme(legend.position = "none") + facet_grid(date ~ .)
+```
+
+
+
+
