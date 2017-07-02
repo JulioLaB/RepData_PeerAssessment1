@@ -1,6 +1,6 @@
 #Edit:
 
-the markdown file "Assignment1" does the following:
+the markdown file "PA1_template" does the following:
 
 
 ### Loading and preprocessing the data
